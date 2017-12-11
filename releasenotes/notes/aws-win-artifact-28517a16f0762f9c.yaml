@@ -1,0 +1,11 @@
+---
+features:
+  - |
+    Add new log system for the agent. This will now handle syslog as well of
+    the log agent.
+deprecations:
+  - |
+    Old file base log have been replaced by syslog or the log agent.
+fixes:
+  - |
+    Logrotate issue on Ubuntu 12 has been resolved by the usage of syslog
