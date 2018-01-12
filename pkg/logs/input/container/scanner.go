@@ -82,6 +82,7 @@ func (s *Scanner) scan(tailFromBeginning bool) {
 	for _, container := range runningContainers {
 		for _, source := range s.sources {
 			if s.sourceShouldMonitorContainer(source, container) {
+				log.Infof("[LOG] scan container %q", container)
 				containersToMonitor[container.ID] = true
 
 				tailer, isTailed := s.tailers[container.ID]
@@ -113,6 +114,7 @@ func (s *Scanner) stopTailer(tailer *DockerTailer) {
 
 func (s *Scanner) listContainers() []types.Container {
 	containers, err := s.cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	log.Infof("[LOGS] containerslist %q", containers)
 	if err != nil {
 		log.Error("Can't tail containers,", err)
 		log.Error("Is datadog-agent part of docker user group?")

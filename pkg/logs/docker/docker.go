@@ -8,7 +8,7 @@ package docker
 import (
 	"bytes"
 	"errors"
-
+	log "github.com/cihub/seelog"
 	"github.com/DataDog/datadog-agent/pkg/logs/config"
 )
 
@@ -24,6 +24,8 @@ func ParseMessage(msg []byte) (string, []byte, []byte, error) {
 	// The format of the message should be :
 	// [8]byte{STREAM_TYPE, 0, 0, 0, SIZE1, SIZE2, SIZE3, SIZE4}[]byte{OUTPUT}
 	// If we don't have at the very least 8 bytes we can consider this message can't be parsed.
+	msgstring := string(msg)
+	log.Infof("[LOG] msg is, %s", msgstring)
 	if len(msg) < messageHeaderLength {
 		return "", nil, nil, errors.New("Can't parse docker message: expected a 8 bytes header")
 	}
