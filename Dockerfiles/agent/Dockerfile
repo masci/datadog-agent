@@ -60,11 +60,13 @@ RUN if [ -n "$WITH_JMX" ]; then apt-get update \
 COPY --from=extract /output/ /
 
 # Prepare for running without root
-RUN adduser --group dd-agent \
- && adduser --system --no-create-home --disabled-password --ingroup dd-agent dd-agent \
- && chown -R dd-agent:dd-agent /etc/datadog-agent/ \
+# Creating user dd-agent:101 for most platforms
+# In openshift, uid is random, but user is in the root group
+RUN adduser --system --no-create-home --disabled-password --ingroup root dd-agent \
  && mkdir /var/log/datadog \
- && chown dd-agent:dd-agent /var/log/datadog/
+ && chown    dd-agent:root /var/log/datadog/ \
+ && chown -R dd-agent:root /etc/datadog-agent/ \
+ && chmod u+w,g+w /etc/datadog-agent/ /var/log/datadog/
 
 # Expose DogStatsD and trace-agent ports
 EXPOSE 8125/udp 8126/tcp
