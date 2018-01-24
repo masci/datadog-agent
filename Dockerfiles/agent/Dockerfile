@@ -3,16 +3,15 @@ ARG WITH_JMX
 COPY datadog-agent*_amd64.deb /
 WORKDIR /output
 
-# Get tini and check gpg signature
-ENV TINI_VERSION v0.16.1
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-amd64 tini
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-amd64.asc tini.asc
+# Get s6-overlay and check gpg signature
+ENV S6_VERSION v1.21.2.2
+ADD https://github.com/just-containers/s6-overlay/releases/download/${S6_VERSION}/s6-overlay-amd64.tar.gz /output/s6.tgz
+ADD https://github.com/just-containers/s6-overlay/releases/download/${S6_VERSION}/s6-overlay-amd64.tar.gz.sig /tmp/s6.tgz.sig
+ADD s6-overlay-key.asc /tmp/s6-overlay-key.asc
 RUN apt-get update \
  && apt-get install --no-install-recommends -y dirmngr gpg \
- && gpg --keyserver ipv4.pool.sks-keyservers.net --recv-keys 595E85A6B1B4779EA4DAAEC70B588DFF0527A9B7 \
- && gpg --verify tini.asc \
- && rm tini.asc \
- && chmod +x tini
+ && gpg --import /tmp/s6-overlay-key.asc \
+ && gpg --verify /tmp/s6.tgz.sig /output/s6.tgz
 
 # Extract and cleanup:
 #   - unused systemd unit
@@ -32,7 +31,7 @@ RUN dpkg -x /datadog-agent*_amd64.deb . \
  && ln -s /opt/datadog-agent/embedded/ssl etc/ssl
 
 # Configuration:
-#   - empty config file to remove logline
+#   - default config files
 #   - enable docker check by default
 #   - enable process agent
 COPY datadog*.yaml etc/datadog-agent/
@@ -47,7 +46,9 @@ LABEL maintainer "Datadog <package@datadoghq.com>"
 ARG WITH_JMX
 ENV DOCKER_DD_AGENT=yes \
     PATH=/opt/datadog-agent/bin/agent/:/opt/datadog-agent/embedded/bin/:$PATH \
-    CURL_CA_BUNDLE=/opt/datadog-agent/embedded/ssl/certs/cacert.pem
+    CURL_CA_BUNDLE=/opt/datadog-agent/embedded/ssl/certs/cacert.pem \
+    S6_KEEP_ENV=1 \
+    S6_LOGGING=0
 
 # Install openjdk-8-jre-headless on jmx flavor
 RUN if [ -n "$WITH_JMX" ]; then apt-get update \
@@ -58,6 +59,12 @@ RUN if [ -n "$WITH_JMX" ]; then apt-get update \
 
 # Copy agent from extract stage
 COPY --from=extract /output/ /
+
+# Extract s6-overlay
+# FIXME: copying it from the extract stage does not work
+RUN tar xfz s6.tgz && rm s6.tgz
+
+COPY s6-services  /etc/services.d/
 
 # Prepare for running without root
 RUN adduser --group dd-agent \
@@ -76,5 +83,6 @@ VOLUME ["/conf.d", "/checks.d"]
 HEALTHCHECK --interval=5m --timeout=20s --retries=1 \
   CMD ["/opt/datadog-agent/bin/agent/agent", "status"]
 
-ENTRYPOINT ["/tini", "--", "/entrypoint.sh"]
-CMD ["/opt/datadog-agent/bin/agent/agent", "start"]
+CMD ["/init"]
+ENTRYPOINT ["/entrypoint.sh"]
+##CMD ["/opt/datadog-agent/bin/agent/agent", "start"]
